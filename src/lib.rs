@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 use guest::prelude::*;
 use kubewarden_policy_sdk::wapc_guest as guest;
 
+use k8s_openapi::api::batch::v1::CronJob as v1_cronJob;
 use k8s_openapi::api::batch::v1beta1::CronJob as v1beta1_cronJob;
 use k8s_openapi::api::core::v1 as apicore;
 use k8s_openapi::Resource;
@@ -31,7 +32,7 @@ pub extern "C" fn wapc_init() {
 }
 
 fn validate(payload: &[u8]) -> CallResult {
-    let validation_request: ValidationRequest<Settings> = ValidationRequest::new(payload)?;
+    let mut validation_request: ValidationRequest<Settings> = ValidationRequest::new(payload)?;
 
     info!(LOG_DRAIN, "starting validation");
     if validation_request.request.dry_run {
@@ -41,8 +42,8 @@ fn validate(payload: &[u8]) -> CallResult {
 
     // service account username
     let username = &validation_request.request.user_info.username;
-    // pod name
-    let pod_name = &validation_request.request.name;
+    // obj name
+    let obj_name = &validation_request.request.name;
     // namespace
     let namespace = &validation_request.request.namespace;
     // operation
@@ -52,83 +53,47 @@ fn validate(payload: &[u8]) -> CallResult {
     // version
     let version = &validation_request.request.kind.version;
 
-    info!(LOG_DRAIN,  "{} {}", operation.to_lowercase(), kind.to_lowercase(); "name" => pod_name, "namespace" => namespace);
-    if validation_request
-        .settings
-        .exempt(username, pod_name, namespace)
-    {
-        warn!(LOG_DRAIN, "accepting resource with exemption");
+    info!(LOG_DRAIN,  "{} {}", operation.to_lowercase(), kind, ; "name" => obj_name, "namespace" => namespace);
+    if validation_request.settings.exempt(username, namespace) {
+        warn!(LOG_DRAIN, "accepting {} with exemption", kind);
         return kubewarden::accept_request();
     }
 
-    // Reject CronJob with batch/v1beta1 apiVersion if hostPID was true
+    // when kind was CronJob, convert batch/v1beta1 to batch/v1
+    // adapt for validation_request.extract_pod_spec_from_object method
     if kind == v1beta1_cronJob::KIND && version == v1beta1_cronJob::VERSION {
-        let cronjob =
-            serde_json::from_value::<v1beta1_cronJob>(validation_request.request.object.clone())?;
-        if let Some(pod_spec) = cronjob
-            .spec
-            .and_then(|spec| spec.job_template.spec.and_then(|spec| spec.template.spec))
-        {
-            if !pod_spec.host_pid.unwrap_or(false) {
-                info!(
-                    LOG_DRAIN,
-                    "accepting {} with hostPID false",
-                    v1beta1_cronJob::KIND
-                );
-                return kubewarden::accept_request();
-            }
-            return match validate_pod(&pod_spec) {
-                Ok(_) => {
-                    info!(
-                        LOG_DRAIN,
-                        "accepting {} with hostPID, SecurityContext.runAsNonRoot already true",
-                        v1beta1_cronJob::KIND
-                    );
-                    kubewarden::accept_request()
-                }
-                Err(err) => {
-                    warn!(
-                        LOG_DRAIN,
-                        "reject {}: {}",
-                        v1beta1_cronJob::KIND,
-                        err.to_string()
-                    );
-                    return kubewarden::reject_request(Some(err.to_string()), None, None, None);
-                }
-            };
-        }
-        info!(
-            LOG_DRAIN,
-            "accepting resource with invalid batch/v1beta1#cronjob spec"
-        );
-        return kubewarden::accept_request();
+        let v1beta1_object = &serde_json::to_string(&validation_request.request.object.clone())
+            .unwrap()
+            .replace(v1beta1_cronJob::VERSION, v1_cronJob::VERSION);
+        validation_request.request.object = serde_json::from_str(v1beta1_object).unwrap();
     }
 
     match validation_request.extract_pod_spec_from_object() {
         Ok(pod_spec) => {
             if let Some(pod_spec) = pod_spec {
                 if !pod_spec.host_pid.unwrap_or(false) {
-                    info!(LOG_DRAIN, "accepting resource with hostPID false");
+                    info!(LOG_DRAIN, "accepting {} with hostPID false", kind);
                     return kubewarden::accept_request();
                 }
                 return match validate_pod(&pod_spec) {
                     Ok(_) => {
-                        info!(LOG_DRAIN, "accepting resource with hostPID, SecurityContext.runAsNonRoot already true");
+                        info!(
+                            LOG_DRAIN,
+                            "accepting {} with hostPID, SecurityContext.runAsNonRoot already true",
+                            kind
+                        );
                         kubewarden::accept_request()
                     }
-                    Err(_) => {
-                        warn!(
-                            LOG_DRAIN,
-                            "mutated resource with SecurityContext.runAsNonRoot true"
+                    Err(err) => {
+                        warn!(LOG_DRAIN,
+                            "reject {} run with hostPID true and securityContext.runAsNonRoot was not set",
+                            kind
                         );
-                        kubewarden::mutate_pod_spec_from_request(
-                            validation_request,
-                            mutate_pod_spec(pod_spec),
-                        )
+                        kubewarden::reject_request(Some(err.to_string()), None, None, None)
                     }
                 };
             };
-            info!(LOG_DRAIN, "accepting resource with invalid pod spec");
+            info!(LOG_DRAIN, "accepting {} with invalid pod spec", kind);
             kubewarden::accept_request()
         }
         Err(_) => {
@@ -136,32 +101,6 @@ fn validate(payload: &[u8]) -> CallResult {
             kubewarden::accept_request()
         }
     }
-}
-
-fn mutate_pod_spec(mut pod_spec: apicore::PodSpec) -> apicore::PodSpec {
-    for container in &mut pod_spec.containers.iter_mut() {
-        let sc = container
-            .security_context
-            .get_or_insert_with(|| apicore::SecurityContext::default());
-        sc.run_as_non_root = Some(true);
-    }
-    if let Some(init_containers) = &mut pod_spec.init_containers {
-        for init_container in init_containers {
-            let sc = init_container
-                .security_context
-                .get_or_insert_with(|| apicore::SecurityContext::default());
-            sc.run_as_non_root = Some(true);
-        }
-    }
-    if let Some(ephemeral_containers) = &mut pod_spec.ephemeral_containers {
-        for ephemeral_container in ephemeral_containers {
-            let sc = ephemeral_container
-                .security_context
-                .get_or_insert_with(|| apicore::SecurityContext::default());
-            sc.run_as_non_root = Some(true);
-        }
-    }
-    pod_spec
 }
 
 fn validate_pod(pod_spec: &apicore::PodSpec) -> Result<bool> {
@@ -220,18 +159,21 @@ mod tests {
     use kubewarden_policy_sdk::test::Testcase;
 
     #[test]
-    fn mutate_pod_with_hostpid() -> Result<(), ()> {
-        let request_file = "test_data/pod_creation_with_hostPID.json";
+    fn reject_obj_with_hostpid() -> Result<(), ()> {
+        let request_file = "test_data/pod_creation.json";
+        // let request_file = "test_data/deployment_creation.json";
+        // let request_file = "test_data/replicaset_creation.json";
+        // let request_file = "test_data/cronjob_v1_creation.json";
         let tc = Testcase {
-            name: String::from("Mutate pod"),
+            name: String::from("Reject pod"),
             fixture_file: String::from(request_file),
-            expected_validation_result: true,
+            expected_validation_result: false,
             settings: Settings::default(),
         };
 
         let res = tc.eval(validate).unwrap();
         assert!(
-            res.mutated_object.is_some(),
+            res.mutated_object.is_none(),
             "Something mutated with test case: {}",
             tc.name,
         );
@@ -241,7 +183,7 @@ mod tests {
 
     #[test]
     fn reject_batchv1beta1_cronjob_with_hostpid() -> Result<(), ()> {
-        let request_file = "test_data/cronjob_creation_with_hostPID.json";
+        let request_file = "test_data/cronjob_creation.json";
         let tc = Testcase {
             name: String::from("Reject batch/v1beta1 cronjob"),
             fixture_file: String::from(request_file),
@@ -281,10 +223,13 @@ mod tests {
 
     #[test]
     fn accept_pod_with_hostpid_but_exempt() -> Result<(), ()> {
-        let request_file = "test_data/pod_creation_with_hostPID.json";
+        let request_file = "test_data/pod_creation.json";
+        // let request_file = "test_data/deployment_creation.json";
+        // let request_file = "test_data/replicaset_creation.json";
+        // let request_file = "test_data/cronjob_creation.json";
+        // let request_file = "test_data/cronjob_v1_creation.json";
 
         let exempt_usernames = HashSet::from(["kubernetes-admin".to_string()]);
-        let exempt_pod_names = HashSet::from(["nginx".to_string()]);
         let exempt_namespaces = HashSet::from(["default".to_string()]);
 
         let tc = Testcase {
@@ -293,7 +238,6 @@ mod tests {
             expected_validation_result: true,
             settings: Settings {
                 exempt_usernames: Some(exempt_usernames),
-                exempt_pod_names: Some(exempt_pod_names),
                 exempt_namespaces: Some(exempt_namespaces),
             },
         };

@@ -1,0 +1,147 @@
+{
+  "uid": "0645b158-00c8-4dc3-a12e-31b948f6b0d8",
+  "kind": {
+    "group": "batch",
+    "version": "v1",
+    "kind": "CronJob"
+  },
+  "resource": {
+    "group": "batch",
+    "version": "v1",
+    "resource": "cronjobs"
+  },
+  "requestKind": {
+    "group": "batch",
+    "version": "v1",
+    "kind": "CronJob"
+  },
+  "requestResource": {
+    "group": "batch",
+    "version": "v1",
+    "resource": "cronjobs"
+  },
+  "name": "nginx",
+  "namespace": "default",
+  "operation": "CREATE",
+  "userInfo": {
+    "groups": [
+      "system:masters",
+      "system:authenticated"
+    ],
+    "username": "kubernetes-admin"
+  },
+  "object": {
+    "kind": "CronJob",
+    "apiVersion": "batch/v1",
+    "metadata": {
+      "name": "nginx",
+      "namespace": "default",
+      "uid": "e02cb6bd-c605-4f0f-9b9a-f4462bd99c07",
+      "creationTimestamp": "2024-06-17T08:34:59Z",
+      "annotations": {
+        "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"batch/v1\",\"kind\":\"CronJob\",\"metadata\":{\"annotations\":{},\"name\":\"nginx\",\"namespace\":\"default\"},\"spec\":{\"jobTemplate\":{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"image\":\"nginx:1.26.1\",\"name\":\"nginx\"}],\"restartPolicy\":\"Never\",\"tolerations\":[{\"effect\":\"NoSchedule\",\"operator\":\"Exists\"}]}}}},\"schedule\":\"0 14 * * *\",\"startingDeadlineSeconds\":60,\"successfulJobsHistoryLimit\":3}}\n"
+      },
+      "managedFields": [
+        {
+          "manager": "kubectl-client-side-apply",
+          "operation": "Update",
+          "apiVersion": "batch/v1",
+          "time": "2024-06-17T08:34:59Z",
+          "fieldsType": "FieldsV1",
+          "fieldsV1": {
+            "f:metadata": {
+              "f:annotations": {
+                ".": {},
+                "f:kubectl.kubernetes.io/last-applied-configuration": {}
+              }
+            },
+            "f:spec": {
+              "f:concurrencyPolicy": {},
+              "f:failedJobsHistoryLimit": {},
+              "f:jobTemplate": {
+                "f:spec": {
+                  "f:template": {
+                    "f:spec": {
+                      "f:containers": {
+                        "k:{\"name\":\"nginx\"}": {
+                          ".": {},
+                          "f:image": {},
+                          "f:imagePullPolicy": {},
+                          "f:name": {},
+                          "f:resources": {},
+                          "f:terminationMessagePath": {},
+                          "f:terminationMessagePolicy": {}
+                        }
+                      },
+                      "f:dnsPolicy": {},
+                      "f:restartPolicy": {},
+                      "f:schedulerName": {},
+                      "f:securityContext": {},
+                      "f:terminationGracePeriodSeconds": {},
+                      "f:tolerations": {}
+                    }
+                  }
+                }
+              },
+              "f:schedule": {},
+              "f:startingDeadlineSeconds": {},
+              "f:successfulJobsHistoryLimit": {},
+              "f:suspend": {}
+            }
+          }
+        }
+      ]
+    },
+    "spec": {
+      "schedule": "0 14 * * *",
+      "startingDeadlineSeconds": 60,
+      "concurrencyPolicy": "Allow",
+      "suspend": false,
+      "jobTemplate": {
+        "metadata": {
+          "creationTimestamp": null
+        },
+        "spec": {
+          "template": {
+            "metadata": {
+              "creationTimestamp": null
+            },
+            "spec": {
+              "containers": [
+                {
+                  "name": "nginx",
+                  "image": "nginx:1.26.1",
+                  "resources": {},
+                  "terminationMessagePath": "/dev/termination-log",
+                  "terminationMessagePolicy": "File",
+                  "imagePullPolicy": "IfNotPresent"
+                }
+              ],
+              "hostPID": true,
+              "restartPolicy": "Never",
+              "terminationGracePeriodSeconds": 30,
+              "dnsPolicy": "ClusterFirst",
+              "securityContext": {},
+              "schedulerName": "default-scheduler",
+              "tolerations": [
+                {
+                  "operator": "Exists",
+                  "effect": "NoSchedule"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "successfulJobsHistoryLimit": 3,
+      "failedJobsHistoryLimit": 1
+    },
+    "status": {}
+  },
+  "dryRun": false,
+  "options": {
+    "kind": "CreateOptions",
+    "apiVersion": "meta.k8s.io/v1",
+    "fieldManager": "kubectl-client-side-apply"
+  }
+}

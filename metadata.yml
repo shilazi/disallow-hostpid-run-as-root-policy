@@ -3,11 +3,19 @@ rules:
   apiVersions: ["v1"]
   resources: ["pods"]
   operations: ["CREATE"]
-- apiGroups: ["batch"]
-  apiVersions: ["v1beta1"]
-  resources: ["cronjobs"]
+- apiGroups: [""]
+  apiVersions: ["v1"]
+  resources: ["replicationcontrollers"]
   operations: ["CREATE", "UPDATE"]
-mutating: true
+- apiGroups: ["apps"]
+  apiVersions: ["v1"]
+  resources: ["daemonsets", "deployments", "replicasets", "statefulsets"]
+  operations: ["CREATE", "UPDATE"]
+- apiGroups: ["batch"]
+  apiVersions: ["v1", "v1beta1"]
+  resources: ["jobs", "cronjobs"]
+  operations: ["CREATE", "UPDATE"]
+mutating: false
 contextAwareResources: []
 executionMode: kubewarden-wapc
 # Consider the policy for the background audit scans. Default is true. Note the
@@ -32,4 +40,4 @@ annotations:
   # Audit scanner. Severity indicates policy check result criticality and
   # Category indicates policy category. See more here at docs.kubewarden.io
   io.kubewarden.policy.severity: low
-  io.kubewarden.policy.category: Resource mutation
+  io.kubewarden.policy.category: Resource validation

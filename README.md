@@ -24,18 +24,23 @@ make
         apiVersions: ["v1"]
         resources: ["pods"]
         operations: ["CREATE"]
-      - apiGroups: ["batch"]
-        apiVersions: ["v1beta1"]
-        resources: ["cronjobs"]
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["replicationcontrollers"]
         operations: ["CREATE", "UPDATE"]
-      mutating: true
+      - apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        resources: ["daemonsets", "deployments", "replicasets", "statefulsets"]
+        operations: ["CREATE", "UPDATE"]
+      - apiGroups: ["batch"]
+        apiVersions: ["v1", "v1beta1"]
+        resources: ["jobs", "cronjobs"]
+        operations: ["CREATE", "UPDATE"]
+      mutating: false
       settings:
         # exempt with service account by username
         exempt_users:
         - kubernetes-admin
-        # exempt with pod name
-        exempt_pod_names:
-        - foo
         # exempt with Namespace
         exempt_namespaces:
         - kube-system
@@ -72,25 +77,11 @@ nginx  1/1     Running            0          15s
 ```
 
 ```
-accepting resource with exemption data={"column":5,"file":"src/lib.rs","line":60,"policy":"disallow-hostpid-run-as-root-policy"}
+accepting resource with exemption data={"column":5,"file":"src/lib.rs","line":58,"policy":"disallow-hostpid-run-as-root-policy"}
 ```
 
 Without exempt:
 
 ```
-$ kubectl get po
-NAME   READY   STATUS                       RESTARTS   AGE
-nginx  0/1     CreateContainerConfigError   0          15s
-
-$ kubectl describe po nginx
-Events:
-  Type     Reason     Age               From               Message
-  ----     ------     ----              ----               -------
-  Warning  Failed     6s (x3 over 20s)  kubelet            Error: container has runAsNonRoot and image will run as root
-```
-
-Work with `batch/v1beta1#CronJob`:
-
-```
-Error from server: error when creating "cj.yml": admission webhook "disallow-hostpid-run-as-root-policy.kubewarden.admission" denied the request: Container run as root with hostPID is not allowed
+Error from server: error when creating "pod.yml": admission webhook "disallow-hostpid-run-as-root-policy.kubewarden.admission" denied the request: Container run as root with hostPID is not allowed
 ```

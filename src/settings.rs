@@ -27,8 +27,6 @@ lazy_static! {
 pub(crate) struct Settings {
     // exempt with service account by username
     pub(crate) exempt_usernames: Option<HashSet<String>>,
-    // exempt with pod name
-    pub(crate) exempt_pod_names: Option<HashSet<String>>,
     // exempt with Namespace
     pub(crate) exempt_namespaces: Option<HashSet<String>>,
 }
@@ -41,14 +39,9 @@ fn validate_kubernetes_object_name_regex(obj_name: &str) -> bool {
 
 impl Settings {
     // exempt return true，otherwise return false
-    pub(crate) fn exempt(&self, username: &String, pod_name: &String, namespace: &String) -> bool {
+    pub(crate) fn exempt(&self, username: &String, namespace: &String) -> bool {
         if let Some(usernames) = &self.exempt_usernames {
             if usernames.contains(username) {
-                return true;
-            }
-        }
-        if let Some(pod_names) = &self.exempt_pod_names {
-            if pod_names.contains(pod_name) {
                 return true;
             }
         }
@@ -69,14 +62,6 @@ impl kubewarden::settings::Validatable for Settings {
             for username in usernames.iter() {
                 if username.len() > USIZE_253 || !validate_kubernetes_object_name_regex(username) {
                     return Err(format!("exempt_username with invalid name: {}", username));
-                }
-            }
-        }
-
-        if let Some(pod_names) = &self.exempt_pod_names {
-            for pod_name in pod_names.iter() {
-                if pod_name.len() > USIZE_253 || !validate_kubernetes_object_name_regex(pod_name) {
-                    return Err(format!("exempt_pod_name with invalid name: {}", pod_name));
                 }
             }
         }
@@ -109,7 +94,6 @@ mod tests {
 
         let settings = Settings {
             exempt_usernames: Some(exempt_usernames),
-            exempt_pod_names: None,
             exempt_namespaces: None,
         };
 
@@ -129,7 +113,6 @@ mod tests {
 
         let settings = Settings {
             exempt_usernames: Some(exempt_usernames),
-            exempt_pod_names: None,
             exempt_namespaces: None,
         };
 
