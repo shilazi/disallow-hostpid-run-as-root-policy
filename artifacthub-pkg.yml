@@ -3,7 +3,7 @@
 ### Use `make artifacthub-pkg.yml` to auto-generate this file
 ### See docs.kubewarden.io for publishing to ArtifactHub
 ###
-version: 0.1.0
+version: 1.0.0
 name: disallow-hostpid-run-as-root-policy
 displayName: LIKE NAME, BUT FANCIER
 createdAt: '2022-07-19T16:39:10+02:00'
@@ -12,12 +12,12 @@ license: Apache-2.0
 homeURL: https://author1.website
 containersImages:
 - name: policy
-  image: "ghcr.io/shilazi/policies/disallow-hostpid-run-as-root-policy:v0.1.0"
+  image: "ghcr.io/shilazi/policies/disallow-hostpid-run-as-root-policy:v1.0.0"
 keywords:
 - this is freeform
 links:
 - name: policy
-  url: https://github.com/yourorg/disallow-hostpid-run-as-root-policy/releases/download/v0.1.0/policy.wasm
+  url: https://github.com/shilazi/disallow-hostpid-run-as-root-policy/releases/download/v1.0.0/disallow-hostpid-run-as-root-policy-v1.0.0.wasm
 - name: source
   url: POLICY HOMEPAGE URL
 provider:
